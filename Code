@@ -1,0 +1,121 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+from PIL import Image, ImageTk
+import ttkthemes
+from ttkthemes import ThemedStyle
+
+
+class ImageViewer:
+    """A simple image viewer app with zoom and paint features."""
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Image Viewer")
+        self.style = ThemedStyle(self.root)
+        self.style.set_theme("clam")
+
+        self.image_frame = tk.Frame(self.root, bg="black")
+        self.image_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas = tk.Canvas(self.image_frame, bg="black", highlightthickness=0)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = tk.Scrollbar(self.image_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.canvas.bind("<Configure>", self.on_canvas_configure)
+
+        self.painting = False
+        self.last_x = 0
+        self.last_y = 0
+
+        self.create_menu()
+        self.bind_events()
+
+    def create_menu(self):
+        """Create the menu bar with file and view options."""
+        menubar = tk.Menu(self.root, bg="black", fg="white")
+        self.root.config(menu=menubar)
+
+        file_menu = tk.Menu(menubar, tearoff=0, bg="black", fg="white")
+        file_menu.add_command(label="Open Image", command=self.open_image)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        view_menu = tk.Menu(menubar, tearoff=0, bg="black", fg="white")
+        view_menu.add_command(label="Zoom In", command=self.zoom_in)
+        view_menu.add_command(label="Zoom Out", command=self.zoom_out)
+        menubar.add_cascade(label="View", menu=view_menu)
+
+    def bind_events(self):
+        """Bind the mouse events for painting on the canvas."""
+        self.canvas.bind("<ButtonPress-1>", self.start_paint)
+        self.canvas.bind("<B1-Motion>", self.draw_paint)
+        self.canvas.bind("<ButtonRelease-1>", self.end_paint)
+
+    def open_image(self):
+        """Open an image file and display it on the canvas."""
+        file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif")])
+        if file_path:
+            try:
+                image = Image.open(file_path)
+                self.display_image(image)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to open image: {e}")
+
+    def display_image(self, image):
+        """Display an image object on the canvas."""
+        self.canvas.delete("all")
+        self.current_image = image
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=ImageTk.PhotoImage(self.current_image))
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def on_canvas_configure(self, event):
+        """Adjust the scroll region of the canvas."""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def start_paint(self, event):
+        """Start painting when the left mouse button is pressed."""
+        self.painting = True
+        self.last_x = event.x
+        self.last_y = event.y
+
+    def draw_paint(self, event):
+        """Draw a line when the left mouse button is moved."""
+        if self.painting:
+            self.canvas.create_line(self.last_x, self.last_y, event.x, event.y, fill="white", width=2)
+            self.last_x = event.x
+            self.last_y = event.y
+
+    def end_paint(self, event):
+        """Stop painting when the left mouse button is released."""
+        self.painting = False
+
+    def zoom_in(self):
+        """Zoom in the image by a factor of 1.2."""
+        self.zoom(1.2)
+
+    def zoom_out(self):
+        """Zoom out the image by a factor of 0.8."""
+        self.zoom(0.8)
+
+    def zoom(self, scale_factor):
+        """Zoom the image by a given scale factor."""
+        width = int(self.canvas.winfo_width() * scale_factor)
+        height = int(self.canvas.winfo_height() * scale_factor)
+        
+	# Use subsample to avoid memory error when zooming in
+        image = self.current_image.resize((width, height))
+        self.display_image(image)
+
+    def run(self):
+        """Start the main loop of the app."""
+        self.root.mainloop()
+
+
+root = ttkthemes.ThemedTk()
+root.configure(bg="black")
+app = ImageViewer(root)
+app.run()
